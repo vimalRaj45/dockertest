@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Deploy Hub - Spring Boot + Docker + Render</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <div class="background-glows">
+        <div class="glow glow-1"></div>
+        <div class="glow glow-2"></div>
+        <div class="glow glow-3"></div>
+    </div>
+
+    <header class="app-header">
+        <div class="logo">
+            <i class="fa-solid fa-cubes-stacked logo-icon"></i>
+            <h1>Cloud<span>Deploy</span>Hub</h1>
+        </div>
+        <div class="header-status">
+            <span class="status-indicator live"></span>
+            <span class="status-text">Neon Database Connected</span>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Dashboard Section: Main Services Grid -->
+        <section class="dashboard-grid">
+            <!-- Left Column: Services List -->
+            <div class="panel glass services-list-panel">
+                <div class="panel-header">
+                    <div class="header-title">
+                        <i class="fa-solid fa-server panel-icon"></i>
+                        <h2>Active Service Deployments</h2>
+                    </div>
+                    <span class="badge badge-count" th:text="${tasks.size() + ' Services'}">0 Services</span>
+                </div>
+                
+                <div class="services-container">
+                    <!-- Iterating over active deployments -->
+                    <div class="service-card" th:each="task : ${tasks}">
+                        <div class="service-details">
+                            <div class="service-title-row">
+                                <h3 th:text="${task.serviceName}">Service Name</h3>
+                                <span th:class="'badge badge-env env-' + ${#strings.toLowerCase(task.environment)}" th:text="${task.environment}">Production</span>
+                            </div>
+                            <p class="service-desc" th:text="${task.description}">Service description goes here. It can be long and informative.</p>
+                            <div class="service-meta">
+                                <span class="meta-item"><i class="fa-solid fa-circle-nodes"></i> Port: <span th:text="${task.port}">8080</span></span>
+                                <span class="meta-item status-running"><span class="status-dot"></span> Status: <span th:text="${task.status}">Running</span></span>
+                            </div>
+                        </div>
+                        <div class="service-actions">
+                            <button class="btn btn-warning btn-icon edit-btn" 
+                                    th:data-id="${task.id}" 
+                                    th:data-name="${task.serviceName}"
+                                    th:data-env="${task.environment}"
+                                    th:data-port="${task.port}"
+                                    th:data-status="${task.status}"
+                                    th:data-desc="${task.description}"
+                                    onclick="openEditModal(this)"
+                                    title="Edit deployment properties">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <form th:action="@{/delete/{id}(id=${task.id})}" method="post" style="display: inline-block;">
+                                <button type="submit" class="btn btn-danger btn-icon" title="Tear down deployment"><i class="fa-solid fa-trash-can"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Empty state -->
+                    <div class="empty-state" th:if="${tasks.isEmpty()}">
+                        <i class="fa-solid fa-circle-exclamation empty-icon"></i>
+                        <p>No active services registered. Add your first service on the right!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Add Service Form -->
+            <div class="panel glass form-panel">
+                <div class="panel-header">
+                    <div class="header-title">
+                        <i class="fa-solid fa-circle-plus panel-icon"></i>
+                        <h2>Deploy New Service</h2>
+                    </div>
+                </div>
+                
+                <form th:action="@{/add}" th:object="${newTask}" method="post" class="deploy-form">
+                    <div class="form-group">
+                        <label for="serviceName">Service Name</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-tag input-icon"></i>
+                            <input type="text" id="serviceName" th:field="*{serviceName}" placeholder="e.g., Payment Gateway" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="environment">Environment</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-network-wired input-icon"></i>
+                                <select id="environment" th:field="*{environment}">
+                                    <option value="Local">Local</option>
+                                    <option value="Staging">Staging</option>
+                                    <option value="Production">Production</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="port">Port</label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-hashtag input-icon"></i>
+                                <input type="number" id="port" th:field="*{port}" placeholder="8080" required min="1" max="65535">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="status">Initial Status</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-spinner input-icon"></i>
+                            <select id="status" th:field="*{status}">
+                                <option value="Running">Running</option>
+                                <option value="Deploying">Deploying</option>
+                                <option value="Stopped">Stopped</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-align-left input-icon-textarea"></i>
+                            <textarea id="description" th:field="*{description}" placeholder="Describe the purpose, dependencies, or stack..." rows="3" required></textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-rocket"></i> Provision Service</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Learn Board Section -->
+        <section class="learn-section">
+            <h2 class="section-title"><i class="fa-solid fa-graduation-cap"></i> Interactive Learn Board: Docker & Render</h2>
+            <p class="section-subtitle">Click on any module card below to expand the interactive lessons, configuration details, and deployment guides.</p>
+            
+            <div class="learn-grid">
+                <!-- Lesson Card 1 -->
+                <details class="learn-card glass" open>
+                    <summary class="learn-card-summary">
+                        <div class="learn-card-header">
+                            <div class="icon-box purple"><i class="fa-brands fa-docker"></i></div>
+                            <div>
+                                <h3>Module 1: Docker Fundamentals</h3>
+                                <p>Learn about images, containers, and how Docker eliminates dependency issues.</p>
+                            </div>
+                        </div>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </summary>
+                    <div class="learn-card-body">
+                        <div class="lesson-content">
+                            <h4>Why Use Docker?</h4>
+                            <p>Before containers, running software was fraught with version mismatch issues ("It works on my machine!"). Docker encapsulates your application code, runtime (JRE), libraries, and settings into a single, isolated package called an <strong>Image</strong>.</p>
+                            
+                            <div class="concept-grid">
+                                <div class="concept-item">
+                                    <div class="concept-title"><i class="fa-solid fa-file-code"></i> Docker Image</div>
+                                    <p>A read-only blueprint (like a class in Java) containing all dependencies and source code needed to run the app.</p>
+                                </div>
+                                <div class="concept-item">
+                                    <div class="concept-title"><i class="fa-solid fa-box-open"></i> Docker Container</div>
+                                    <p>A runnable instance of an image (like an object instantiation in Java) that runs isolated in its own sandbox environment.</p>
+                                </div>
+                                <div class="concept-item">
+                                    <div class="concept-title"><i class="fa-solid fa-warehouse"></i> Docker Registry</div>
+                                    <p>A repository where images are uploaded (like Docker Hub, GitHub Packages) so cloud platforms like Render can pull and run them.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Lesson Card 2 -->
+                <details class="learn-card glass">
+                    <summary class="learn-card-summary">
+                        <div class="learn-card-header">
+                            <div class="icon-box blue"><i class="fa-solid fa-file-invoice"></i></div>
+                            <div>
+                                <h3>Module 2: Writing the Dockerfile</h3>
+                                <p>Examine the multi-stage Docker build recipe designed for Spring Boot.</p>
+                            </div>
+                        </div>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </summary>
+                    <div class="learn-card-body">
+                        <div class="lesson-content">
+                            <h4>Multi-Stage Build Blueprint</h4>
+                            <p>To keep our final image lightweight and secure, we use a <strong>Multi-stage build</strong>. In Stage 1, we pull a full Maven image to compile our code. In Stage 2, we copy only the compiled JAR file into a slim JRE runtime image.</p>
+                            
+                            <div class="code-preview-header">Dockerfile</div>
+                            <pre class="code-block"><code># STAGE 1: Build the Maven Project
+FROM maven:3.9.6-eclipse-temurin-17 AS builder
+WORKDIR /app
+COPY pom.xml .
+COPY src ./src
+RUN mvn clean package -DskipTests
+
+# STAGE 2: Lightweight JRE Run Stage
+FROM eclipse-temurin:17-jre-jammy
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]</code></pre>
+                            
+                            <h4>Directive Explanations:</h4>
+                            <ul class="explain-list">
+                                <li><strong>FROM:</strong> Selects the base image. We build with a compiler-ready JDK and run with a slim runtime-only JRE.</li>
+                                <li><strong>WORKDIR:</strong> Sets the working directory inside the container's filesystem.</li>
+                                <li><strong>COPY:</strong> Transfers source files from your local system into the image filesystem.</li>
+                                <li><strong>RUN:</strong> Executes commands (like compile/package) inside the container during build time.</li>
+                                <li><strong>EXPOSE:</strong> Tells Docker which port the app listens on inside the container (8080).</li>
+                                <li><strong>ENTRYPOINT:</strong> Configures the container to run as an executable. Here, it launches our JAR.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Lesson Card 3 -->
+                <details class="learn-card glass">
+                    <summary class="learn-card-summary">
+                        <div class="learn-card-header">
+                            <div class="icon-box teal"><i class="fa-solid fa-layer-group"></i></div>
+                            <div>
+                                <h3>Module 3: Local Orchestration with Compose</h3>
+                                <p>Running the application and database together in local environments.</p>
+                            </div>
+                        </div>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </summary>
+                    <div class="learn-card-body">
+                        <div class="lesson-content">
+                            <h4>Local Multi-container Setup</h4>
+                            <p>Instead of manually starting containers and linking their IP addresses, <strong>Docker Compose</strong> allows us to define multi-container architectures in a single <code>compose.yaml</code> file.</p>
+                            
+                            <div class="code-preview-header">compose.yaml</div>
+                            <pre class="code-block"><code>services:
+  # Service 1: Local Postgres Database
+  postgres:
+    image: 'postgres:15-alpine'
+    environment:
+      - 'POSTGRES_DB=mydatabase'
+      - 'POSTGRES_USER=myuser'
+      - 'POSTGRES_PASSWORD=secret'
+    ports:
+      - '5432:5432'
+
+  # Service 2: Spring Boot Application
+  app:
+    build: .
+    ports:
+      - '8080:8080'
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mydatabase
+      - SPRING_DATASOURCE_USERNAME=myuser
+      - SPRING_DATASOURCE_PASSWORD=secret
+    depends_on:
+      - postgres</code></pre>
+
+                            <h4>Key Features of Compose:</h4>
+                            <ul class="explain-list">
+                                <li><strong>Service Networking:</strong> Docker Compose creates a default shared network. Inside the container context, our Spring Boot app can reach PostgreSQL by referencing its service name: <code>jdbc:postgresql://postgres:5432/mydatabase</code>.</li>
+                                <li><strong>depends_on:</strong> Ensures the database container starts up before the Spring Boot application starts trying to boot up.</li>
+                                <li><strong>Port Mapping (host:container):</strong> Maps port 8080 of our machine to port 8080 inside the container, allowing access via <code>http://localhost:8080</code>.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Lesson Card 4 -->
+                <details class="learn-card glass">
+                    <summary class="learn-card-summary">
+                        <div class="learn-card-header">
+                            <div class="icon-box orange"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                            <div>
+                                <h3>Module 4: Deploying to Render Cloud</h3>
+                                <p>Steps to deploy your Spring Boot app and database to Render for free.</p>
+                            </div>
+                        </div>
+                        <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
+                    </summary>
+                    <div class="learn-card-body">
+                        <div class="lesson-content">
+                            <h4>Deploying Live Services on Render</h4>
+                            <p>Render supports hosting Docker containers directly. We can deploy our Spring Boot application and connect it to a managed database (or the Neon database you provided!).</p>
+                            
+                            <div class="deploy-steps">
+                                <div class="step">
+                                    <span class="step-num">1</span>
+                                    <div class="step-text">
+                                        <h5>Push Project to GitHub</h5>
+                                        <p>Create a GitHub repository and push your project directory containing the <code>Dockerfile</code>, <code>pom.xml</code>, and source code. (Make sure the files are at the repository root or configure the sub-directory path in Render).</p>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <span class="step-num">2</span>
+                                    <div class="step-text">
+                                        <h5>Create a Database</h5>
+                                        <p>You can use your Neon Postgres Database URL: <code>postgresql://neondb_owner:npg_UiY5nTrAclD2@ep-fragrant-field-ap8wb8z4-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require</code>. The application is pre-configured to connect to it automatically!</p>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <span class="step-num">3</span>
+                                    <div class="step-text">
+                                        <h5>Create Web Service on Render</h5>
+                                        <p>Log in to <a href="https://dashboard.render.com" target="_blank">Render Dashboard</a>. Click <strong>New +</strong> and select <strong>Web Service</strong>. Connect your GitHub repository.</p>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <span class="step-num">4</span>
+                                    <div class="step-text">
+                                        <h5>Configure Settings</h5>
+                                        <p>Configure the following settings in the Render Web Service creation panel:</p>
+                                        <ul>
+                                            <li><strong>Runtime:</strong> Select <code>Docker</code> (Render will automatically detect your <code>Dockerfile</code> and build it!).</li>
+                                            <li><strong>Root Directory:</strong> Set to <code>dockertest</code> (since your Maven code and Dockerfile live in the subdirectory of your workspace).</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <span class="step-num">5</span>
+                                    <div class="step-text">
+                                        <h5>Environment Variables</h5>
+                                        <p>Expand the <strong>Advanced</strong> section in Render and add the environment variables so Spring Boot connects to your database securely:</p>
+                                        <div class="table-container">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <th>Key</th>
+                                                        <th>Value</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td><code>SPRING_DATASOURCE_URL</code></td>
+                                                        <td><code>jdbc:postgresql://ep-fragrant-field-ap8wb8z4-pooler.c-7.us-east-1.aws.neon.tech/neondb?sslmode=require</code></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>SPRING_DATASOURCE_USERNAME</code></td>
+                                                        <td><code>neondb_owner</code></td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>SPRING_DATASOURCE_PASSWORD</code></td>
+                                                        <td><code>npg_UiY5nTrAclD2</code></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="step">
+                                    <span class="step-num">6</span>
+                                    <div class="step-text">
+                                        <h5>Deploy and Monitor</h5>
+                                        <p>Click <strong>Create Web Service</strong>. Render will pull your repository, execute the multi-stage Docker build, launch the container, and assign it a public URL (e.g. <code>https://your-app.onrender.com</code>)! Check the logs tab in Render to see Spring Boot startup logs.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>&copy; 2026 Cloud Deploy Hub. Built for pair programming with Antigravity.</p>
+    </footer>
+
+    <!-- Edit Service Modal Overlay -->
+    <div id="editModal" class="modal-backdrop">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <div class="modal-header-title">
+                    <i class="fa-solid fa-pen-to-square modal-title-icon"></i>
+                    <h3>Modify Deployment Properties</h3>
+                </div>
+                <button type="button" class="close-modal-btn" onclick="closeEditModal()">&times;</button>
+            </div>
+            
+            <form th:action="@{/edit}" method="post" class="deploy-form">
+                <input type="hidden" id="editId" name="id">
+                
+                <div class="form-group">
+                    <label for="editName">Service Name</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-tag input-icon"></i>
+                        <input type="text" id="editName" name="serviceName" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-6">
+                        <label for="editEnv">Environment</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-network-wired input-icon"></i>
+                            <select id="editEnv" name="environment">
+                                <option value="Local">Local</option>
+                                <option value="Staging">Staging</option>
+                                <option value="Production">Production</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group col-6">
+                        <label for="editPort">Port</label>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-hashtag input-icon"></i>
+                            <input type="number" id="editPort" name="port" required min="1" max="65535">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editStatus">Status</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-spinner input-icon"></i>
+                        <select id="editStatus" name="status">
+                            <option value="Running">Running</option>
+                            <option value="Deploying">Deploying</option>
+                            <option value="Stopped">Stopped</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editDesc">Description</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-align-left input-icon-textarea"></i>
+                        <textarea id="editDesc" name="description" rows="3" required></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JS Helper for Modals -->
+    <script>
+        function openEditModal(button) {
+            document.getElementById('editId').value = button.getAttribute('data-id');
+            document.getElementById('editName').value = button.getAttribute('data-name');
+            document.getElementById('editEnv').value = button.getAttribute('data-env');
+            document.getElementById('editPort').value = button.getAttribute('data-port');
+            document.getElementById('editStatus').value = button.getAttribute('data-status');
+            document.getElementById('editDesc').value = button.getAttribute('data-desc');
+            
+            document.getElementById('editModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+
+        // Close modal if clicked outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target === modal) {
+                closeEditModal();
+            }
+        }
+    </script>
+</body>
+</html>
